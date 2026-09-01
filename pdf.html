@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>이미지 다중 업로드 1페이지 PDF 저장기</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- jsPDF CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+        }
+        .canvas-shadow {
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        }
+        .drag-over {
+            border-color: #3b82f6 !important;
+            background-color: #eff6ff !important;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+    <!-- Navigation Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-blue-600 text-white rounded-xl shadow-md">
+                    <i class="fa-solid fa-file-pdf text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight text-slate-900">이미지 묶음 1페이지 PDF 변환기</h1>
+                    <p class="text-xs text-slate-500">여러 이미지를 하나의 그룹으로 모아 1페이지 PDF로 저장</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="reset-all-btn" class="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-1.5">
+                    <i class="fa-solid fa-rotate-right"></i> 전체 초기화
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Left Column: Controls & Image Management -->
+        <section class="lg:col-span-5 flex flex-col gap-5">
+            
+            <!-- Upload Box -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                <h2 class="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-[#3b82f6] fa-cloud-arrow-up text-blue-500"></i> 이미지 파일 선택
+                </h2>
+                <div id="drop-zone" class="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-xl p-6 text-center cursor-pointer transition-all bg-slate-50/50 hover:bg-blue-50/30 group">
+                    <input type="file" id="file-input" multiple accept="image/*" class="hidden">
+                    <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-images text-xl"></i>
+                    </div>
+                    <p class="text-sm font-semibold text-slate-700">클릭하거나 이미지 파일들을 이곳에 드롭하세요</p>
+                    <p class="text-xs text-slate-400 mt-1">PNG, JPG, JPEG, WEBP, GIF 등 지원 (다중 선택 가능)</p>
+                </div>
+            </div>
+
+            <!-- Layout Options Box -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-4">
+                <h2 class="text-sm font-bold text-slate-700 flex items-center gap-2 border-b border-slate-100 pb-2">
+                    <i class="fa-solid fa-sliders text-blue-500"></i> 1페이지 레이아웃 설정
+                </h2>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <!-- Orientation -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">페이지 방향</label>
+                        <select id="opt-orientation" class="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none">
+                            <option value="portrait">세로 방향 (Portrait)</option>
+                            <option value="landscape">가로 방향 (Landscape)</option>
+                        </select>
+                    </div>
+
+                    <!-- Margin Option -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">바깥 여백 (Margin)</label>
+                        <select id="opt-margin" class="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none">
+                            <option value="10">보통 (10mm)</option>
+                            <option value="5">좁게 (5mm)</option>
+                            <option value="20">넓게 (20mm)</option>
+                            <option value="0">여백 없음 (0mm)</option>
+                        </select>
+                    </div>
+
+                    <!-- Grid Spacing -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">이미지 간격 (Gap)</label>
+                        <select id="opt-gap" class="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none">
+                            <option value="10">보통 (10px)</option>
+                            <option value="4">좁게 (4px)</option>
+                            <option value="20">넓게 (20px)</option>
+                            <option value="0">간격 없음 (0px)</option>
+                        </select>
+                    </div>
+
+                    <!-- Fit Mode -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">이미지 맞춤 방식</label>
+                        <select id="opt-fit" class="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none">
+                            <option value="contain">원본 비율 유지 (Contain)</option>
+                            <option value="cover">영역 채우기 (Cover)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Custom Layout Columns Control -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">열(Column) 그리드</label>
+                        <select id="opt-cols" class="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none">
+                            <option value="auto">자동 계산 (Auto Grid)</option>
+                            <option value="1">1열 (단일 열)</option>
+                            <option value="2">2열</option>
+                            <option value="3">3열</option>
+                            <option value="4">4열</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">배경색</label>
+                        <input type="color" id="opt-bg" value="#ffffff" class="w-full h-[34px] p-1 bg-slate-50 border border-slate-300 rounded-lg cursor-pointer">
+                    </div>
+                </div>
+
+                <!-- Optional Title Header -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">페이지 상단 제목 (선택)</label>
+                    <input type="text" id="opt-title" placeholder="PDF 상단에 추가할 제목 텍스트 (예: 현장 사진 모음)" class="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+            </div>
+
+            <!-- Uploaded Images List (Group Items) -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex-1 flex flex-col min-h-[250px]">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
+                    <h2 class="text-sm font-bold text-slate-700 flex items-center gap-2">
+                        <i class="fa-solid fa-layer-group text-blue-500"></i> 업로드된 그룹 파일 (<span id="image-count">0</span>)
+                    </h2>
+                    <button id="clear-list-btn" class="text-xs text-red-500 hover:underline hidden">전체 비우기</button>
+                </div>
+
+                <div id="file-list-container" class="flex-1 overflow-y-auto max-h-[300px] space-y-2 pr-1">
+                    <!-- Empty State -->
+                    <div id="empty-state" class="h-full flex flex-col items-center justify-center text-slate-400 py-10">
+                        <i class="fa-regular fa-folder-open text-3xl mb-2"></i>
+                        <p class="text-xs">업로드된 이미지가 없습니다.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Download Button -->
+            <button id="generate-pdf-btn" disabled class="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-lg hover:shadow-blue-200 transition-all flex items-center justify-center gap-2 text-sm">
+                <i class="fa-solid fa-file-arrow-down"></i>
+                <span>1페이지 PDF 파일 저장하기</span>
+            </button>
+        </section>
+
+        <!-- Right Column: Live PDF Preview Canvas -->
+        <section class="lg:col-span-7 flex flex-col">
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex-1 flex flex-col items-center">
+                <div class="w-full flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+                            <i class="fa-solid fa-eye text-blue-500"></i> PDF 1페이지 실시간 프리뷰
+                        </h2>
+                        <p class="text-xs text-slate-400">모든 업로드 파일이 단 1개의 PDF 페이지 내에 구성됩니다.</p>
+                    </div>
+                    <span id="page-badge" class="px-2.5 py-1 text-[11px] font-semibold bg-blue-50 text-blue-600 border border-blue-200 rounded-full">
+                        A4 Single Page
+                    </span>
+                </div>
+
+                <!-- Interactive Preview Frame -->
+                <div class="w-full flex-1 flex items-center justify-center bg-slate-100/80 rounded-xl p-4 overflow-auto min-h-[450px]">
+                    <div id="canvas-wrapper" class="relative max-w-full flex items-center justify-center">
+                        <canvas id="pdf-preview-canvas" class="canvas-shadow bg-white rounded transition-all max-w-full max-h-[70vh] border border-slate-200"></canvas>
+                        
+                        <!-- Overlay Loading -->
+                        <div id="render-spinner" class="absolute inset-0 bg-white/70 backdrop-blur-[2px] rounded flex items-center justify-center hidden">
+                            <div class="flex items-center gap-2 text-xs font-semibold text-slate-600 bg-white px-3 py-2 rounded-lg shadow-md border border-slate-100">
+                                <i class="fa-solid fa-circle-notch fa-spin text-blue-500"></i> 레이아웃 다시 계산 중...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-slate-800 text-white text-xs px-4 py-3 rounded-xl shadow-xl flex items-center gap-2.5 opacity-0 pointer-events-none transition-all z-50 transform translate-y-2">
+        <i id="toast-icon" class="fa-solid fa-info-circle text-blue-400"></i>
+        <span id="toast-message">메시지 내용</span>
+    </div>
+
+    <script>
+        // Store uploaded images list
+        let uploadedFiles = []; // Array of { id, file, name, src, imgObject }
+
+        // DOM Element references
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const fileListContainer = document.getElementById('file-list-container');
+        const emptyState = document.getElementById('empty-state');
+        const imageCountEl = document.getElementById('image-count');
+        const clearListBtn = document.getElementById('clear-list-btn');
+        const generatePdfBtn = document.getElementById('generate-pdf-btn');
+        const resetAllBtn = document.getElementById('reset-all-btn');
+        const previewCanvas = document.getElementById('pdf-preview-canvas');
+        const ctx = previewCanvas.getContext('2d');
+        const renderSpinner = document.getElementById('render-spinner');
+
+        // Layout controls DOM
+        const optOrientation = document.getElementById('opt-orientation');
+        const optMargin = document.getElementById('opt-margin');
+        const optGap = document.getElementById('opt-gap');
+        const optFit = document.getElementById('opt-fit');
+        const optCols = document.getElementById('opt-cols');
+        const optBg = document.getElementById('opt-bg');
+        const optTitle = document.getElementById('opt-title');
+
+        // Initialize Event Listeners
+        window.addEventListener('DOMContentLoaded', () => {
+            setupDragAndDrop();
+            setupOptionsListeners();
+            updateCanvasPreview();
+        });
+
+        // Setup File Upload & Drag-and-Drop
+        function setupDragAndDrop() {
+            dropZone.addEventListener('click', () => fileInput.click());
+
+            fileInput.addEventListener('change', (e) => {
+                handleFilesSelected(e.target.files);
+                fileInput.value = ''; // Reset input
+            });
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropZone.classList.add('drag-over');
+                });
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropZone.classList.remove('drag-over');
+                });
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                if (dt.files && dt.files.length > 0) {
+                    handleFilesSelected(dt.files);
+                }
+            });
+
+            clearListBtn.addEventListener('click', clearAllFiles);
+            resetAllBtn.addEventListener('click', clearAllFiles);
+            generatePdfBtn.addEventListener('click', generateSinglePagePDF);
+        }
+
+        // Setup live preview redraw listeners
+        function setupOptionsListeners() {
+            [optOrientation, optMargin, optGap, optFit, optCols, optBg].forEach(element => {
+                element.addEventListener('change', updateCanvasPreview);
+            });
+            optTitle.addEventListener('input', updateCanvasPreview);
+        }
+
+        // Process selected files into state
+        function handleFilesSelected(files) {
+            const validImageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+
+            if (validImageFiles.length === 0) {
+                showToast('이미지 파일만 선택해 주세요.', 'error');
+                return;
+            }
+
+            let loadedCount = 0;
+            showSpinner(true);
+
+            validImageFiles.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const fileObj = {
+                            id: 'img_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                            file: file,
+                            name: file.name,
+                            src: e.target.result,
+                            imgObject: img
+                        };
+                        uploadedFiles.push(fileObj);
+                        loadedCount++;
+
+                        if (loadedCount === validImageFiles.length) {
+                            renderFileListUI();
+                            updateCanvasPreview();
+                            showSpinner(false);
+                            showToast(`${validImageFiles.length}개의 이미지가 그룹에 추가되었습니다.`);
+                        }
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // Render UI List of Uploaded Images
+        function renderFileListUI() {
+            imageCountEl.textContent = uploadedFiles.length;
+            
+            if (uploadedFiles.length === 0) {
+                fileListContainer.innerHTML = `
+                    <div id="empty-state" class="h-full flex flex-col items-center justify-center text-slate-400 py-10">
+                        <i class="fa-regular fa-folder-open text-3xl mb-2"></i>
+                        <p class="text-xs">업로드된 이미지가 없습니다.</p>
+                    </div>`;
+                clearListBtn.classList.add('hidden');
+                generatePdfBtn.disabled = true;
+                return;
+            }
+
+            clearListBtn.classList.remove('hidden');
+            generatePdfBtn.disabled = false;
+            fileListContainer.innerHTML = '';
+
+            uploadedFiles.forEach((fileObj, idx) => {
+                const itemEl = document.createElement('div');
+                itemEl.className = 'flex items-center justify-between p-2.5 bg-slate-50 border border-slate-200 rounded-xl group hover:border-blue-300 transition-all';
+                itemEl.innerHTML = `
+                    <div class="flex items-center gap-3 min-w-0">
+                        <span class="text-xs font-semibold text-slate-400 w-4 text-center">${idx + 1}</span>
+                        <div class="w-10 h-10 rounded-lg overflow-hidden bg-slate-200 shrink-0 border border-slate-300">
+                            <img src="${fileObj.src}" class="w-full h-full object-cover">
+                        </div>
+                        <div class="min-w-0">
+                            <p class="text-xs font-semibold text-slate-700 truncate max-w-[140px] sm:max-w-[180px]">${fileObj.name}</p>
+                            <p class="text-[10px] text-slate-400">${fileObj.imgObject.width}x${fileObj.imgObject.height} px</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <button onclick="moveImage(${idx}, -1)" class="p-1.5 text-slate-400 hover:text-blue-600 rounded hover:bg-blue-50 text-xs ${idx === 0 ? 'opacity-30 cursor-not-allowed' : ''}">
+                            <i class="fa-solid fa-chevron-up"></i>
+                        </button>
+                        <button onclick="moveImage(${idx}, 1)" class="p-1.5 text-slate-400 hover:text-blue-600 rounded hover:bg-blue-50 text-xs ${idx === uploadedFiles.length - 1 ? 'opacity-30 cursor-not-allowed' : ''}">
+                            <i class="fa-solid fa-chevron-down"></i>
+                        </button>
+                        <button onclick="removeImage('${fileObj.id}')" class="p-1.5 text-slate-400 hover:text-red-600 rounded hover:bg-red-50 text-xs ml-1">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                `;
+                fileListContainer.appendChild(itemEl);
+            });
+        }
+
+        // Move image up or down in group order
+        window.moveImage = function(index, direction) {
+            const targetIdx = index + direction;
+            if (targetIdx < 0 || targetIdx >= uploadedFiles.length) return;
+            
+            const temp = uploadedFiles[index];
+            uploadedFiles[index] = uploadedFiles[targetIdx];
+            uploadedFiles[targetIdx] = temp;
+
+            renderFileListUI();
+            updateCanvasPreview();
+        };
+
+        // Remove single image from group
+        window.removeImage = function(id) {
+            uploadedFiles = uploadedFiles.filter(item => item.id !== id);
+            renderFileListUI();
+            updateCanvasPreview();
+            showToast('이미지가 그룹에서 삭제되었습니다.');
+        };
+
+        // Clear all uploaded files
+        function clearAllFiles() {
+            if (uploadedFiles.length === 0) return;
+            uploadedFiles = [];
+            renderFileListUI();
+            updateCanvasPreview();
+            showToast('전체 목록이 초기화되었습니다.');
+        }
+
+        // Calculate dynamic grid layout (Columns and Rows) for 1 single page
+        function calculateGridLayout(count, colsOpt, isLandscape) {
+            if (count === 0) return { cols: 1, rows: 1 };
+
+            if (colsOpt !== 'auto') {
+                const cols = parseInt(colsOpt, 10);
+                const rows = Math.ceil(count / cols);
+                return { cols, rows };
+            }
+
+            // Auto Grid calculations optimized for A4 proportions
+            if (count === 1) return { cols: 1, rows: 1 };
+            if (count === 2) return isLandscape ? { cols: 2, rows: 1 } : { cols: 1, rows: 2 };
+            if (count <= 4) return { cols: 2, rows: 2 };
+            if (count <= 6) return isLandscape ? { cols: 3, rows: 2 } : { cols: 2, rows: 3 };
+            if (count <= 9) return { cols: 3, rows: 3 };
+            if (count <= 12) return isLandscape ? { cols: 4, rows: 3 } : { cols: 3, rows: 4 };
+            if (count <= 16) return { cols: 4, rows: 4 };
+            
+            // For larger numbers of images
+            const cols = Math.ceil(Math.sqrt(count * (isLandscape ? 1.4 : 0.8)));
+            const rows = Math.ceil(count / cols);
+            return { cols, rows };
+        }
+
+        // Render Single Page Preview on Canvas
+        function updateCanvasPreview() {
+            showSpinner(true);
+
+            setTimeout(() => {
+                // High resolution A4 standard dimensions at ~150 DPI for clean rendering
+                const isLandscape = optOrientation.value === 'landscape';
+                const canvasWidth = isLandscape ? 1754 : 1240;  // A4 Landscape vs Portrait
+                const canvasHeight = isLandscape ? 1240 : 1754;
+
+                previewCanvas.width = canvasWidth;
+                previewCanvas.height = canvasHeight;
+
+                // Fill Background
+                ctx.fillStyle = optBg.value || '#ffffff';
+                ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+                // Check for Empty state canvas
+                if (uploadedFiles.length === 0) {
+                    drawEmptyCanvasNotice(canvasWidth, canvasHeight);
+                    showSpinner(false);
+                    return;
+                }
+
+                // Margins & Gap Calculation
+                const mmToPx = canvasWidth / (isLandscape ? 297 : 210); // scale ratio
+                const marginPx = parseFloat(optMargin.value) * mmToPx;
+                const gapPx = parseFloat(optGap.value) * (canvasWidth / 1000);
+
+                // Title Area
+                const titleText = optTitle.value.trim();
+                let topOffset = marginPx;
+                if (titleText) {
+                    const titleFontSize = Math.round(canvasWidth * 0.025);
+                    ctx.font = `bold ${titleFontSize}px Pretendard, sans-serif`;
+                    ctx.fillStyle = '#1e293b';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'top';
+                    ctx.fillText(titleText, canvasWidth / 2, marginPx);
+                    topOffset += titleFontSize + (marginPx * 0.5);
+                }
+
+                // Grid Dimensions
+                const printableWidth = canvasWidth - (marginPx * 2);
+                const printableHeight = canvasHeight - topOffset - marginPx;
+
+                const { cols, rows } = calculateGridLayout(uploadedFiles.length, optCols.value, isLandscape);
+
+                const cellWidth = (printableWidth - (gapPx * (cols - 1))) / cols;
+                const cellHeight = (printableHeight - (gapPx * (rows - 1))) / rows;
+
+                const fitMode = optFit.value; // 'contain' or 'cover'
+
+                // Render each image in its grid cell
+                uploadedFiles.forEach((fileObj, idx) => {
+                    const col = idx % cols;
+                    const row = Math.floor(idx / cols);
+
+                    const cellX = marginPx + col * (cellWidth + gapPx);
+                    const cellY = topOffset + row * (cellHeight + gapPx);
+
+                    drawImageInCell(ctx, fileObj.imgObject, cellX, cellY, cellWidth, cellHeight, fitMode);
+                });
+
+                showSpinner(false);
+            }, 30);
+        }
+
+        // Draw empty helper on canvas
+        function drawEmptyCanvasNotice(width, height) {
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = 'bold 32px Pretendard, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('1페이지 PDF 미리보기 영역', width / 2, height / 2 - 20);
+            
+            ctx.font = '22px Pretendard, sans-serif';
+            ctx.fillStyle = '#cbd5e1';
+            ctx.fillText('왼쪽에서 이미지를 선택/드롭하여 그룹에 추가하세요', width / 2, height / 2 + 30);
+        }
+
+        // Draw Image maintaining aspect ratio or covering cell
+        function drawImageInCell(context, img, x, y, width, height, fitMode) {
+            context.save();
+
+            // Clip cell rectangle
+            context.beginPath();
+            context.rect(x, y, width, height);
+            context.clip();
+
+            const imgRatio = img.width / img.height;
+            const cellRatio = width / height;
+
+            let drawW, drawH, drawX, drawY;
+
+            if (fitMode === 'cover') {
+                if (imgRatio > cellRatio) {
+                    drawH = height;
+                    drawW = height * imgRatio;
+                } else {
+                    drawW = width;
+                    drawH = width / imgRatio;
+                }
+            } else { // 'contain'
+                if (imgRatio > cellRatio) {
+                    drawW = width;
+                    drawH = width / imgRatio;
+                } else {
+                    drawH = height;
+                    drawW = height * imgRatio;
+                }
+            }
+
+            drawX = x + (width - drawW) / 2;
+            drawY = y + (height - drawH) / 2;
+
+            context.drawImage(img, drawX, drawY, drawW, drawH);
+            context.restore();
+        }
+
+        // Generate PDF from single-page canvas using jsPDF
+        function generateSinglePagePDF() {
+            if (uploadedFiles.length === 0) {
+                showToast('저장할 이미지가 없습니다.', 'error');
+                return;
+            }
+
+            try {
+                showSpinner(true);
+                const { jsPDF } = window.jspdf;
+                const isLandscape = optOrientation.value === 'landscape';
+                const orientation = isLandscape ? 'landscape' : 'portrait';
+
+                // Create jsPDF Instance (A4 format)
+                const doc = new jsPDF({
+                    orientation: orientation,
+                    unit: 'mm',
+                    format: 'a4',
+                    compress: true
+                });
+
+                // Convert preview canvas to high quality JPEG/PNG Data URL
+                const imgData = previewCanvas.toDataURL('image/jpeg', 0.95);
+
+                const pdfWidth = isLandscape ? 297 : 210;
+                const pdfHeight = isLandscape ? 210 : 297;
+
+                // Add canvas image to EXACT 1 PAGE
+                doc.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+
+                // Save PDF
+                const timestamp = new Date().toISOString().slice(0, 10);
+                doc.save(`ImageGroup_SinglePage_${timestamp}.pdf`);
+
+                showSpinner(false);
+                showToast('1페이지 PDF 파일이 저장되었습니다!');
+            } catch (err) {
+                console.error(err);
+                showSpinner(false);
+                showToast('PDF 생성 중 오류가 발생했습니다.', 'error');
+            }
+        }
+
+        // Helper: Spinner loader UI toggle
+        function showSpinner(show) {
+            if (show) {
+                renderSpinner.classList.remove('hidden');
+            } else {
+                renderSpinner.classList.add('hidden');
+            }
+        }
+
+        // Helper: Toast Message Display
+        let toastTimeout;
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toast-message');
+            const toastIcon = document.getElementById('toast-icon');
+
+            clearTimeout(toastTimeout);
+
+            toastMessage.textContent = message;
+
+            if (type === 'error') {
+                toastIcon.className = 'fa-solid fa-circle-exclamation text-red-400';
+            } else {
+                toastIcon.className = 'fa-solid fa-circle-check text-green-400';
+            }
+
+            toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-2');
+
+            toastTimeout = setTimeout(() => {
+                toast.classList.add('opacity-0', 'pointer-events-none', 'translate-y-2');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
